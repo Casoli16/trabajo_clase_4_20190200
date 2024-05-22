@@ -6,9 +6,10 @@ const numColumns = 3;
 
 const PokemonItem = React.memo(({ item }) => (
   <View style={styles.card}>
+  <Text>{item.id}</Text>
     <Image
       style={styles.image}
-      source={{ uri: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${item.id}.png` }}
+      source={{ uri: item.image }}
     />
     <Text style={styles.title}>{item.name}</Text>
     <Text>{item.description}</Text>

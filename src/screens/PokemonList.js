@@ -8,19 +8,50 @@ const numColumns = 3;
 
 import PokemonItem from '../components/PokemonItem';
 import FormularioPokemon from '../components/FormularioPokemon';
+import InputName from '../components/InputName';
 
 export default function PokemonList() {
   const [pokemon, setPokemon] = useState([]);
   const [loading, setLoading] = useState(false);
   const [cantidadPokemon, setCantidadPokemon] = useState(10);
+  const [nombrePokemon, setPokemonNombre]= useState(); //Guardara lo que se escriba en el input
 
   const fetchData = async () => {
     try {
       setLoading(true);
       const response = await fetch(`https://pokeapi.co/api/v2/pokemon?limit=${cantidadPokemon}`);
       const data = await response.json();
-      console.log(data)
-      setPokemon(data.results.map((result, index) => ({ ...result, id: index + 1, description: pokemonDetails.species.flavor_text_entries[0].flavor_text, abilities: pokemonDetails.abilities})));
+
+      //Accedemos al endpoint que trae la descripción de los pokemons
+      const responseDescription = await Promise.all(
+        data.results.map(async (result,index) => {
+          //Le pasamos el nombre del pokemon para que busque la descripción según el id del pokemón
+          const pokemonDetails = await fetch(`https://pokeapi.co/api/v2/pokemon-species/${result.name}`);
+          //Convertimos a json.
+          const detailsData = await pokemonDetails.json();
+
+          //Permite cambiar el idioma de la descripción
+          const descripcionEspa = detailsData.flavor_text_entries.find(
+            (entry) => entry.language.name === 'es'
+          );
+
+          //Obtenemos el id que nos ayudara a mostrar la imagen
+          const id = index + 1;
+
+          //Accedemos a la informacion que necesitamos.
+          return {
+            ...result,   
+            id: id,  
+            name: result.name, 
+            description: descripcionEspa?.flavor_text,
+            image: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`
+          };
+        })
+      );
+
+      //Pasamos la informacion obtenida a nuestro arreglo.
+      setPokemon(responseDescription);
+
     } catch (error) {
       console.log("Hubo un error listando los pokemones", error);
     } finally {
@@ -28,9 +59,19 @@ export default function PokemonList() {
     }
   };
 
+   // Utilizar useEffect para ejecutar fetchData cuando cambia cantidadPokemon
   useEffect(() => {
     fetchData();
   }, [cantidadPokemon]);
+
+  // Función para filtrar Pokemon por nombre
+  const searchPokemon = (searchName) => {
+    if (!searchName) {
+      return pokemon;
+    }
+    // Si no hay término de búsqueda, devolver todos los Pokemon
+    return pokemon.filter((item) => item.name.toLowerCase().includes(searchName.toLowerCase()));
+  };
 
   return (
     <View style={styles.container}>
@@ -41,12 +82,18 @@ export default function PokemonList() {
         valor={cantidadPokemon}
         setValor={setCantidadPokemon}
       />
+       {/* Componente InputName para ingresar el término de búsqueda */}
+      <InputName
+        labelInput='Escribe el nombre del pokemon que quieres buscar'
+        valor={(text) => setPokemonNombre(text)}
+        placeholder='Escribe un nombre'
+      />
       {loading ? (
         <ActivityIndicator style={styles.loading} size="large" color="#0000ff" />
       ) : (
         <FlatList
-          data={pokemon}
-          renderItem={({ item }) => <PokemonItem item={{...item, description: item.description}} />}
+          data={searchPokemon(nombrePokemon)} // // Filtrar datos según el término de búsqueda
+          renderItem={({ item }) => <PokemonItem item={item} />}
           keyExtractor={(item) => item.name}
           numColumns={numColumns}
           contentContainerStyle={styles.list}
